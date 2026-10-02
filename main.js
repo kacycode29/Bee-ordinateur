@@ -12,7 +12,7 @@
 */
 'use strict';
 
-const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -141,7 +141,46 @@ function creerFenetre() {
   });
   fenetre.webContents.setWindowOpenHandler(({ url }) => { versExterieur(url); return { action: 'deny' }; });
 
+  /* Menu du clic droit. Electron n'en fournit aucun : sans ces lignes,
+     un clic droit dans un champ ne propose ni Copier ni Coller, et
+     l'enseignant ne peut pas coller son code d'autorisation. */
+  fenetre.webContents.on('context-menu', (ev, params) => {
+    const f = params.editFlags || {};
+    const items = [];
+    if (params.isEditable) {
+      items.push({ label: 'Annuler', role: 'undo', enabled: !!f.canUndo });
+      items.push({ label: 'Rétablir', role: 'redo', enabled: !!f.canRedo });
+      items.push({ type: 'separator' });
+      items.push({ label: 'Couper', role: 'cut', enabled: !!f.canCut });
+      items.push({ label: 'Copier', role: 'copy', enabled: !!f.canCopy });
+      items.push({ label: 'Coller', role: 'paste', enabled: !!f.canPaste });
+      items.push({ type: 'separator' });
+      items.push({ label: 'Tout sélectionner', role: 'selectAll' });
+    } else {
+      if (params.selectionText && params.selectionText.trim()) {
+        items.push({ label: 'Copier', role: 'copy' });
+        items.push({ type: 'separator' });
+      }
+      items.push({ label: 'Tout sélectionner', role: 'selectAll' });
+      items.push({ type: 'separator' });
+      items.push({ label: 'Imprimer la fiche…', click: () => fenetre.webContents.print({}, () => {}) });
+    }
+    Menu.buildFromTemplate(items).popup({ window: fenetre });
+  });
+
   fenetre.on('closed', () => { fenetre = null; });
+}
+
+/* Le presse-papiers. Le logiciel copie l'identifiant d'installation d'un
+   clic ; sans autorisation explicite, Electron refuse l'accès et le bouton
+   reste sans effet. Aucune autre autorisation n'est accordée : ni caméra,
+   ni micro, ni position, ni notifications. */
+function autorisations() {
+  const PERMIS = ['clipboard-read', 'clipboard-sanitized-write', 'clipboard-write'];
+  session.defaultSession.setPermissionRequestHandler((wc, permission, retour) => {
+    retour(PERMIS.includes(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler((wc, permission) => PERMIS.includes(permission));
 }
 
 /* ------------------------------------------------------------------
@@ -227,6 +266,7 @@ if (!app.requestSingleInstanceLock()) {
     if (fenetre) { if (fenetre.isMinimized()) fenetre.restore(); fenetre.focus(); }
   });
   app.whenReady().then(() => {
+    autorisations();
     menu();
     creerFenetre();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creerFenetre(); });
