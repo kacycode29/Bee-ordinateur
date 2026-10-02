@@ -1,1 +1,58 @@
+name: Construire le .exe Windows
 
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:      # permet de lancer la fabrication à la main
+
+permissions:
+  contents: write         # nécessaire pour publier le .exe dans une "Release"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Empreinte du contenu pédagogique
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash index.html -Algorithm SHA256).Hash
+          $o = (Get-Item index.html).Length
+          Write-Host "index.html : $o octets"
+          Write-Host "SHA-256    : $h"
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Construire le .exe portable
+        run: npx electron-builder --win portable --publish never
+
+      - name: Lister le résultat
+        shell: pwsh
+        run: Get-ChildItem dist -Filter *.exe | Format-List Name, Length
+
+      - name: Téléverser le .exe (onglet Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: exe-windows
+          path: dist/*.exe
+          retention-days: 90
+
+      - name: Publier le .exe dans une Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $f = (Get-ChildItem dist -Filter *.exe | Select-Object -First 1).FullName
+          Write-Host "Publication de : $f"
+          gh release create "pc-v${{ github.run_number }}" "$f" `
+            --title "BEE Ordinateur - fabrication n ${{ github.run_number }}" `
+            --notes "Version portable pour Windows 10 et 11 (64 bits). Aucune installation : telechargez le fichier .exe et double-cliquez dessus."
