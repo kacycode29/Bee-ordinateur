@@ -1,0 +1,45 @@
+{
+  "name": "bee-lesson-plan-generator",
+  "version": "13.22.0",
+  "description": "BEE — Burkina English Express · Lesson Plan Generator",
+  "main": "main.js",
+  "author": "Tidiani BARRY",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.burkinaenglishexpress.lessonplan",
+    "productName": "BEE Lesson Plan Generator",
+    "copyright": "Tidiani BARRY",
+    "compression": "maximum",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "icone.ico"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icone.ico"
+    },
+    "portable": {
+      "artifactName": "BEE-Ordinateur-v13.22.exe",
+      "unicode": true
+    }
+  }
+}
